@@ -94,8 +94,14 @@ class BuildsetsEndpoint(Db2DataMixin, base.Endpoint):
     def get(self, resultSpec, kwargs):
         complete = resultSpec.popBooleanFilter('complete')
         resultSpec.fieldMapping = self.fieldMapping
-        d = self.master.db.buildsets.getBuildsets(
-            complete=complete, resultSpec=resultSpec)
+
+        branch = resultSpec.popStringFilter('branch')
+        if branch is not None:
+            d = self.master.db.buildsets.getRecentBuildsets(complete=complete,
+                    branch=branch)
+        else:
+            d = self.master.db.buildsets.getBuildsets(
+                complete=complete, resultSpec=resultSpec)
 
         @d.addCallback
         def db2data(buildsets):
@@ -131,6 +137,7 @@ class Buildset(base.ResourceType):
             of=sourcestampsapi.SourceStamp.entityType)
         parent_buildid = types.NoneOk(types.Integer())
         parent_relationship = types.NoneOk(types.String())
+        branch = types.String()
     entityType = EntityType(name, 'Buildset')
     subresources = ["Property"]
 

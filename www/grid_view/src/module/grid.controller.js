@@ -68,7 +68,8 @@ class Grid {
         });
         this.changes = this.data.getChanges({
             limit: this.changeFetchLimit,
-            order: '-changeid'
+            order: '-changeid',
+            branch: this.branch
         });
         this.builders = this.data.getBuilders();
         this.buildrequests = this.data.getBuildrequests({

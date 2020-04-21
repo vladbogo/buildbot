@@ -22,7 +22,7 @@ function finish {
     kill %1
     buildbot stop workdir
     buildbot-worker stop workdir/worker
-    rm -rf workdir
+    #rm -rf workdir
 }
 trap finish EXIT
 rm -rf workdir
