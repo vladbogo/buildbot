@@ -348,6 +348,7 @@ class ResultSpec:
     def thd_execute(self, conn, q, dictFromRow):
         offset, limit = self.offset, self.limit
         q, qc = self.applyToSQLQuery(q)
+        print(q)
         res = conn.execute(q)
         rv = [dictFromRow(row) for row in res.fetchall()]
 

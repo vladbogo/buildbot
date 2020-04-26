@@ -254,6 +254,7 @@ class ChangesConnectorComponent(base.DBConnectorComponent):
         def thd(conn):
             # get the changeids from the 'changes' table
             changes_tbl = self.db.model.changes
+            q = changes_tbl.select()
 
             if resultSpec is not None:
                 q = changes_tbl.select()

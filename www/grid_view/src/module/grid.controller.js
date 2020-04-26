@@ -64,7 +64,8 @@ class Grid {
 
         this.buildsets = this.data.getBuildsets({
             limit: this.buildFetchLimit,
-            order: '-bsid'
+            order: '-bsid',
+            branch: this.branch
         });
         this.changes = this.data.getChanges({
             limit: this.changeFetchLimit,
@@ -72,24 +73,18 @@ class Grid {
             branch: this.branch
         });
         this.builders = this.data.getBuilders();
-        this.buildrequests = this.data.getBuildrequests({
-            limit: this.buildFetchLimit,
-            order: '-buildrequestid'
-        });
-        this.builds = this.data.getBuilds({
-            limit: this.buildFetchLimit,
-            order: '-buildrequestid'
-        });
+
+        this.buildrequests = null
+        this.builds = null
 
         this.buildsets.onChange = this.onChange;
-        this.changes.onChange = this.onChange;
         this.builders.onChange = this.onChange;
-        this.buildrequests.change = this.onChange;
-        this.builds.onChange = this.onChange;
-    }
+        this.changes.onChange = this.onChange;
+  }
 
     dataReady() {
         for (let collection of [this.buildsets, this.changes, this.builders, this.buildrequests, this.builds]) {
+            if (collection === null) { continue; }
             if (!(collection.$resolved && (collection.length > 0))) {
                 return false;
             }
@@ -99,6 +94,7 @@ class Grid {
 
     dataFetched() {
         for (let collection of [this.buildsets, this.changes, this.builders, this.buildrequests, this.builds]) {
+            if (collection === null) { continue; }
             if (!collection.$resolved) {
                 return false;
             }
@@ -112,7 +108,39 @@ class Grid {
         if (!this.dataReady()) {
             return;
         }
-
+        if (this.buildrequests === null) {
+            var bset_ids = [];
+            for (bset of Array.from(this.buildsets)) {
+                 bset_ids.push(bset.bsid);
+            }
+ 
+            this.buildrequests = this.data.getBuildrequests({
+                limit: this.buildFetchLimit,
+                order: '-buildrequestid',
+                buildsetid__contains: bset_ids
+            });
+            this.buildrequests.onChange = this.onChange;
+        }
+        if (!this.dataReady()) {
+            return;
+        }
+        if (this.builds === null) {
+            var breq_ids = [];
+            for (req of Array.from(this.buildrequests)) {
+                 breq_ids.push(req.buildrequestid);
+            }
+ 
+            this.builds = this.data.getBuilds({
+                limit: this.buildFetchLimit,
+                order: '-buildrequestid',
+                buildrequestid__contains: breq_ids
+            });
+            this.builds.onChange = this.onChange;
+        }
+        if (!this.dataReady()) {
+          return;
+        }
+ 
         let changes = {};
         const branches = {};
 
