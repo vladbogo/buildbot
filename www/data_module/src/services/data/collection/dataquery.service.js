@@ -17,7 +17,7 @@ class DataQuery {
                 this.filters = {};
                 for (let fieldAndOperator in query) {
                     let value = query[fieldAndOperator];
-                    if (['field', 'limit', 'offset', 'order', 'property'].indexOf(fieldAndOperator) < 0) {
+                    if (['field', 'limit', 'offset', 'order', 'property', 'branch'].indexOf(fieldAndOperator) < 0) {
                         if (['on', 'true', 'yes'].indexOf(value) > -1) { value = true;
                         } else if (['off', 'false', 'no'].indexOf(value) > -1) { value = false; }
                         this.filters[fieldAndOperator] = value;

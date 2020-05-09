@@ -25,10 +25,9 @@
 class Grid {
     constructor($scope, $stateParams, $state, resultsService, dataService, bbSettingsService) {
         this.onChange = this.onChange.bind(this);
-        this.changeBranch = this.changeBranch.bind(this);
-        this.changeResult = this.changeResult.bind(this);
-        this.toggleTag = this.toggleTag.bind(this);
-        this.resetTags = this.resetTags.bind(this);
+	this.changeResult = this.changeResult.bind(this);
+	this.toggleTag = this.toggleTag.bind(this);
+	this.resetTags = this.resetTags.bind(this);
         this.refresh = this.refresh.bind(this);
         this.isBuilderDisplayed = this.isBuilderDisplayed.bind(this);
         this.isTagToggled = this.isTagToggled.bind(this);
@@ -39,7 +38,7 @@ class Grid {
         this.data = dataService.open().closeOnDestroy(this.$scope);
 
         this.branch = this.$stateParams.branch;
-        this.tags = this.$stateParams.tag != null ? this.$stateParams.tag : [];
+	this.tags = this.$stateParams.tag != null ? this.$stateParams.tag : [];
         if (!angular.isArray(this.tags)) {
             this.tags = [this.tags];
         }
@@ -62,11 +61,6 @@ class Grid {
         this.fullChanges = settings.fullChanges.value;
         this.leftToRight = settings.leftToRight.value;
 
-        this.buildsets = this.data.getBuildsets({
-            limit: this.buildFetchLimit,
-            order: '-bsid',
-            branch: this.branch
-        });
         this.changes = this.data.getChanges({
             limit: this.changeFetchLimit,
             order: '-changeid',
@@ -74,27 +68,21 @@ class Grid {
         });
         this.builders = this.data.getBuilders();
 
-        this.buildrequests = null
-        this.builds = null
-
-        this.buildsets.onChange = this.onChange;
         this.builders.onChange = this.onChange;
         this.changes.onChange = this.onChange;
   }
 
     dataReady() {
-        for (let collection of [this.buildsets, this.changes, this.builders, this.buildrequests, this.builds]) {
-            if (collection === null) { continue; }
-            if (!(collection.$resolved && (collection.length > 0))) {
-                return false;
-            }
+        for (let collection of [this.builders, this.changes]) {
+	     if (!(collection.$resolved && (collection.length > 0))) {
+	          return false;
+             }
         }
         return true;
     }
 
     dataFetched() {
-        for (let collection of [this.buildsets, this.changes, this.builders, this.buildrequests, this.builds]) {
-            if (collection === null) { continue; }
+        for (let collection of [this.changes, this.builders]) {
             if (!collection.$resolved) {
                 return false;
             }
@@ -108,76 +96,27 @@ class Grid {
         if (!this.dataReady()) {
             return;
         }
-        if (this.buildrequests === null) {
-            var bset_ids = [];
-            for (bset of Array.from(this.buildsets)) {
-                 bset_ids.push(bset.bsid);
-            }
- 
-            this.buildrequests = this.data.getBuildrequests({
-                limit: this.buildFetchLimit,
-                order: '-buildrequestid',
-                buildsetid__contains: bset_ids
-            });
-            this.buildrequests.onChange = this.onChange;
-        }
-        if (!this.dataReady()) {
-            return;
-        }
-        if (this.builds === null) {
-            var breq_ids = [];
-            for (req of Array.from(this.buildrequests)) {
-                 breq_ids.push(req.buildrequestid);
-            }
- 
-            this.builds = this.data.getBuilds({
-                limit: this.buildFetchLimit,
-                order: '-buildrequestid',
-                buildrequestid__contains: breq_ids
-            });
-            this.builds.onChange = this.onChange;
-        }
-        if (!this.dataReady()) {
-          return;
-        }
- 
+	console.log('On CHANGE');
         let changes = {};
         const branches = {};
 
-        // map changes by source stamp id
-        const changesBySSID = {};
         for (c of Array.from(this.changes)) {
-            changesBySSID[c.sourcestamp.ssid] = c;
-            c.buildsets = {};
-        }  // there can be multiple buildsets by change
+	    if (c.builds.length ==0) {
+	    	continue;
+	    }
+            changes[c.changeid] = c;
+	    branches[c.branch] = true;
+        } 
 
-        // associate buildsets to each change and remember existing branches
-        for (bset of Array.from(this.buildsets)) {
-            change = changesBySSID[_.last(bset.sourcestamps).ssid];
-            if (change == null) {
-                continue;
-            }
-
-            change.buildsets[bset.bsid] = bset;
-            if (change.branch == null) { change.branch = 'master'; }
-            branches[change.branch] = true;
-
-            if (this.branch && (change.branch !== this.branch)) {
-                continue;
-            }
-
-            changes[change.changeid] = change;
-        }
-
-        // only keep the @revisionLimit most recent changes for display
-        changes = ((() => {
-            const result = [];
-            for (let cid of Object.keys(changes || {})) {
-                change = changes[cid];
-                result.push(change);
-            }
-            return result;
-        })());
+	// only keep the @revisionLimit most recent changes for display
+	changes = ((() => {
+	const result = [];
+	     for (let cid of Object.keys(changes || {})) {
+	         change = changes[cid];
+	         result.push(change);
+	     }
+	     return result;
+	})());
         if (this.leftToRight) {
             changes.sort((a, b) => a.changeid - b.changeid);
             if (changes.length > this.revisionLimit) {
@@ -199,54 +138,30 @@ class Grid {
             return result1;
         })());
 
-        const requestsByBSID = {};
-        for (req of Array.from(this.buildrequests)) {
-            (requestsByBSID[req.buildsetid] != null ? requestsByBSID[req.buildsetid] : (requestsByBSID[req.buildsetid] = [])).push(req);
-        }
-        const buildsByReqID = {};
-        for (let build of Array.from(this.builds)) {
-            // There may be multiple builds for a given request
-            // (for example when a worker connection is lost).
-            (buildsByReqID[build.buildrequestid] != null ? buildsByReqID[build.buildrequestid] : (buildsByReqID[build.buildrequestid] = [])).push(build);
-        }
-
         for (builder of Array.from(this.builders)) {
             builder.builds = {};
         }
 
         const buildersById = {};
-        // find builds for the selected changes and associate them to builders
         for (c of Array.from(this.$scope.changes)) {
-            for (let bsid of Object.keys(c.buildsets || {})) {
-                bset = c.buildsets[bsid];
-                const requests = requestsByBSID[bsid];
-                if (requests == null) {
-                    continue;
-                }
-                for (req of Array.from(requests)) {
-                    const builds = buildsByReqID[req.buildrequestid] != null ? buildsByReqID[req.buildrequestid] : [];
-                    if ((this.result != null) && (this.result !== '') && !isNaN(this.result)) {
-                        i = 0;
-                        while (i < builds.length) {
-                            if (parseInt(builds[i].results) !== parseInt(this.result)) {
-                                builds.splice(i, 1);
-                            } else {
-                                i += 1;
-                            }
-                        }
-                    }
-                    if (!(builds.length > 0)) {
-                        continue;
-                    }
-                    builder = this.builders.get(builds[0].builderid);
-                    if (!this.isBuilderDisplayed(builder)) {
-                        continue;
-                    }
-                    buildersById[builder.builderid] = builder;
-                    builder.builds[c.changeid] = builds;
-                }
-            }
-        }
+    		const builds = c.builds;
+		for (let build of Array.from(c.builds)) {
+			builder = this.builders.get(build.builderid);
+			if (!this.isBuilderDisplayed(builder)) {
+	                       	continue;
+                    	}
+			if ((this.result != null) && (this.result !== '') && !isNaN(this.result)) {
+                            	if (parseInt(build.results) !== parseInt(this.result)) {
+                                	continue;
+                        	}
+                    	}	
+			buildersById[builder.builderid] = builder;
+			if (!(c.changeid in builder.builds)) {
+				builder.builds[c.changeid] = []
+			}
+			builder.builds[c.changeid].push(build);
+		}
+	}
 
         return this.$scope.builders = ((() => {
             const result2 = [];
@@ -257,7 +172,6 @@ class Grid {
             return result2;
         })());
     }
-
     changeBranch(branch) {
         this.branch = branch;
         return this.refresh();
@@ -277,7 +191,6 @@ class Grid {
         }
         return this.refresh();
     }
-
     resetTags() {
         this.tags = [];
         return this.refresh();
@@ -290,8 +203,6 @@ class Grid {
             result: this.result
         };
 
-        // change URL without reloading page
-        this.$state.transitionTo(this.$state.current, params, {notify: false});
         this.onChange();
     }
 
@@ -307,6 +218,7 @@ class Grid {
     isTagToggled(tag) {
         return this.tags.indexOf(tag) >= 0;
     }
+
 }
 
 

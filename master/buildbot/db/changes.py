@@ -28,7 +28,6 @@ from buildbot.db import base
 from buildbot.util import datetime2epoch
 from buildbot.util import epoch2datetime
 
-
 class ChDict(dict):
     pass
 
@@ -249,6 +248,34 @@ class ChangesConnectorComponent(base.DBConnectorComponent):
 
     def _getDataFromRow(self, row):
         return row.changeid
+
+    def getChangesForBranch(self, branch, order, count):
+        def thd(conn):
+            changes_tbl = self.db.model.changes
+            bsets_tbl = self.db.model.buildsets
+            bsss_tbl = self.db.model.buildset_sourcestamps
+            reqs_tbl = self.db.model.buildrequests
+            builds_tbl = self.db.model.builds
+
+            from_clause = changes_tbl.join(bsss_tbl,
+                                           changes_tbl.c.sourcestampid == bsss_tbl.c.sourcestampid)
+
+            q = sa.select([changes_tbl.c.changeid.distinct()]).select_from(
+                from_clause).where(changes_tbl.c.branch == branch).limit(count).order_by(changes_tbl.c.changeid.desc())
+            rp = conn.execute(q)
+            changeids = [self._getDataFromRow(row) for row in rp]
+            rp.close()
+            return list(changeids)
+
+        d = self.db.pool.do(thd)
+        # then turn those into changes, using the cache
+        @d.addCallback
+        def get_changes(changeids):
+            return defer.gatherResults([self.getChange(changeid)
+                                        for changeid in changeids])
+ 
+        return d
+
 
     def getChanges(self, resultSpec=None):
         def thd(conn):

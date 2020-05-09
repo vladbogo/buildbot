@@ -97,8 +97,11 @@ class BuildsetsEndpoint(Db2DataMixin, base.Endpoint):
 
         branch = resultSpec.popStringFilter('branch')
         if branch is not None:
+            count=None
+            if resultSpec.limit:
+                count = resultSpec.limit
             d = self.master.db.buildsets.getRecentBuildsets(complete=complete,
-                    branch=branch)
+                    branch=branch, count=count)
         else:
             d = self.master.db.buildsets.getBuildsets(
                 complete=complete, resultSpec=resultSpec)

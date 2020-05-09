@@ -35,7 +35,7 @@ class GridState {
                 controllerAs: 'C',
                 template: require('./grid.tpl.jade'),
                 url: '/grid?branch&tag&result',
-                reloadOnSearch: false,
+                reloadOnSearch: true,
                 data: {
                     group: 'grid',
                     caption: 'Grid View'

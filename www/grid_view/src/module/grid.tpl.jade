@@ -10,10 +10,6 @@
         |  to be in the system.
     .form-inline(ng-show="C.dataReady()")
         .form-group
-            label Branch
-            select.form-control(ng-model="C.branch", ng-change="C.changeBranch(C.branch)", ng-options="br for br in branches | orderBy")
-                option(value="") (all)
-        .form-group
             label Results
             select.form-control(ng-model="C.result", ng-change="C.changeResult(C.result)", ng-options="r.code as r.text for r in C.results")
                 option(value="") (all)

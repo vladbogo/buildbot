@@ -42,12 +42,14 @@ class FixerMixin:
                     {'name': k, 'source': v[1], 'value': json.dumps(v[0])}
                     for k, v in props.items()
                 ]
+                change['builds'] = yield self.master.db.builds.getBuildsForChange(change['changeid'])
             else:
                 sskey = ('sourcestamps', str(change['sourcestampid']))
                 change['sourcestamp'] = yield self.master.data.get(sskey)
                 del change['sourcestampid']
         return change
     fieldMapping = {
+        'changeid': 'changes.changeid',
         'author': 'changes.author',
         'branch': 'changes.branch',
         'category': 'changes.category',
@@ -102,11 +104,16 @@ class ChangesEndpoint(FixerMixin, base.BuildNestingMixin, base.Endpoint):
                 changes = [change]
             else:
                 changes = []
-        else:
+        else: 
             if resultSpec is not None:
-                resultSpec.fieldMapping = self.fieldMapping
-                changes = yield self.master.db.changes.getChanges(resultSpec=resultSpec)
+                branch = resultSpec.popStringFilter('branch')
+                if branch is not None:
+                    changes = yield self.master.db.changes.getChangesForBranch(branch, resultSpec.order, resultSpec.limit)
+                else:
+                    resultSpec.fieldMapping = self.fieldMapping
+                    changes = yield self.master.db.changes.getChanges(resultSpec=resultSpec)
         results = []
+        print("CHANGES", changes)
         for ch in changes:
             results.append((yield self._fixChange(ch, is_graphql='graphql' in kwargs)))
         return results
