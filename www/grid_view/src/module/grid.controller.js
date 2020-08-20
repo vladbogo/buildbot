@@ -38,6 +38,10 @@ class Grid {
         this.data = dataService.open().closeOnDestroy(this.$scope);
 
         this.branch = this.$stateParams.branch;
+	console.log(this.branch)
+	if (typeof this.branch == 'undefined') {
+	   this.branch = 'all';
+	}
 	this.tags = this.$stateParams.tag != null ? this.$stateParams.tag : [];
         if (!angular.isArray(this.tags)) {
             this.tags = [this.tags];

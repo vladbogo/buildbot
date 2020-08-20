@@ -259,9 +259,13 @@ class ChangesConnectorComponent(base.DBConnectorComponent):
 
             from_clause = changes_tbl.join(bsss_tbl,
                                            changes_tbl.c.sourcestampid == bsss_tbl.c.sourcestampid)
-
-            q = sa.select([changes_tbl.c.changeid.distinct()]).select_from(
-                from_clause).where(changes_tbl.c.branch == branch).limit(count).order_by(changes_tbl.c.changeid.desc())
+            if branch == 'all':
+                q = sa.select([changes_tbl.c.changeid.distinct()]).select_from(
+                    from_clause)
+            else:
+                q = sa.select([changes_tbl.c.changeid.distinct()]).select_from(
+                    from_clause).where(changes_tbl.c.branch == branch)
+            q = q.limit(count).order_by(changes_tbl.c.changeid.desc())
             rp = conn.execute(q)
             changeids = [self._getDataFromRow(row) for row in rp]
             rp.close()

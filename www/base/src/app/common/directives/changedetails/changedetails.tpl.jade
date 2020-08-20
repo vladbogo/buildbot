@@ -1,5 +1,5 @@
 div.changedetails(style="width:100%;")
-    div(style="width:100%;", ng-click="change.show_details = !change.show_details")
+    div(style="width:100%;")
         .change-avatar(ng-if="!compact && change.author_email")
             a(ng-href="mailto:{{change.author_email}}", title="{{change.author_name}}")
                 img(ng-src="avatar?email={{change.author_email}}")
@@ -7,7 +7,7 @@ div.changedetails(style="width:100%;")
             | {{ change.revision.substr(0, 10) + '... ' }}
         span(ng-if="change.revlink")
             | in {{ change.branch }}
-        i.fa.fa-chevron-circle-right.rotate.clickable(ng-class="{'fa-rotate-90':change.show_details}")
+        i.fa.fa-chevron-circle-right.rotate.clickable(ng-class="{'fa-rotate-90':change.show_details}", ng-click="change.show_details = !change.show_details")
     div.anim-changedetails(ng-show="change.show_details")
         table.table.table-striped.table-condensed(ng-show="change.show_details")
           tr(ng-if="change.category")

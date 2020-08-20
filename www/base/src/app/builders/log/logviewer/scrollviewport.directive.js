@@ -84,7 +84,7 @@ class Scroll {
                     let viewport = null;  // viewport is the parent element which contains the scrolled vieweport
                     let padding = null;   // padding is a function which creates padding element of a certain size
                     let isLoading = false; // whether we are fetching data
-                    let loadAll = false;  // should we load the whole log
+                    let loadAll = true;  // should we load the whole log
 
                     // Buffer is a sparse array containing list of rows that are already instantiated into dom
                     // or padding. padding have the class .padding, and potentially following buffer elements are

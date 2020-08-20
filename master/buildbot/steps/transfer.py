@@ -310,7 +310,7 @@ class MultipleFileUpload(_TransferBuildStep, CompositeStepMixin):
 
     def uploadDirectory(self, source, masterdest):
         dirWriter = remotetransfer.DirectoryWriter(
-            masterdest, self.maxsize, self.compress, 0o600)
+            masterdest, self.maxsize, self.compress, self.mode)
 
         args = {
             'workdir': self.workdir,
