@@ -45,6 +45,7 @@ class FileWriter(base.FileWriterImpl):
         fd, self.tmpname = tempfile.mkstemp(dir=dirname, prefix='buildbot-transfer-')
         self.fp = os.fdopen(fd, 'wb')
         self.remaining = maxsize
+        self.dirname = dirname
 
     def remote_write(self, data):
         """
@@ -80,6 +81,10 @@ class FileWriter(base.FileWriterImpl):
         self.tmpname = None
         if self.mode is not None:
             os.chmod(self.destfile, self.mode)
+            try:
+                os.chmod(self.dirname, self.mode)
+            except:
+                pass
 
     def cancel(self):
         # unclean shutdown, the file is probably truncated, so delete it
