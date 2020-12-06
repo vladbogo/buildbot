@@ -24,6 +24,7 @@ from buildbot.db import NULL
 from buildbot.db import base
 from buildbot.util import epoch2datetime
 
+from collections import OrderedDict
 
 class BuildsConnectorComponent(base.DBConnectorComponent):
 
@@ -96,7 +97,26 @@ class BuildsConnectorComponent(base.DBConnectorComponent):
 
         return rv
 
-    def getBuildsForChange(self, changeid):
+    def getTestsForBuild(self, buildnum, buildername):
+        def thd(conn):
+            test_run_tbl = self.db.model.test_run
+            test_failure_tbl = self.db.model.test_failure
+
+            from_clause = test_run_tbl.join(test_failure_tbl,
+                    test_run_tbl.c.id == test_failure_tbl.c.test_run_id)
+
+            q = sa.select([test_failure_tbl]).select_from(
+                from_clause).where(test_run_tbl.c.bbnum==buildnum)
+            q = q.where(test_run_tbl.c.platform==buildername)
+
+            res = conn.execute(q)
+
+            return [self._buildtestdictFromRow(row)
+                for row in res.fetchall()]
+
+        return self.db.pool.do(thd)
+
+    def getBuildsForChange(self, changeid, failedTests=False):
         assert changeid > 0
 
         def thd(conn):
@@ -107,6 +127,11 @@ class BuildsConnectorComponent(base.DBConnectorComponent):
             reqs_tbl = self.db.model.buildrequests
             builds_tbl = self.db.model.builds
 
+            if failedTests == True:
+                test_run_tbl = self.db.model.test_run
+                test_failure_tbl = self.db.model.test_failure
+                builders_tbl = self.db.model.builders
+
             from_clause = changes_tbl.join(bsss_tbl,
                                            changes_tbl.c.sourcestampid == bsss_tbl.c.sourcestampid)
             from_clause = from_clause.join(bsets_tbl,
@@ -116,11 +141,29 @@ class BuildsConnectorComponent(base.DBConnectorComponent):
             from_clause = from_clause.join(builds_tbl,
                                            reqs_tbl.c.id == builds_tbl.c.buildrequestid)
 
-            q = sa.select([builds_tbl]).select_from(
-                from_clause).where(changes_tbl.c.changeid == changeid)
+            if failedTests:
+                from_clause = from_clause.join(builders_tbl,
+                                               builds_tbl.c.builderid == builders_tbl.c.id, isouter=True)
+                from_clause = from_clause.join(test_run_tbl,
+                                               (builds_tbl.c.number == test_run_tbl.c.bbnum) & (builders_tbl.c.name == test_run_tbl.c.platform), isouter=True)
+                from_clause = from_clause.join(test_failure_tbl,
+                                               test_run_tbl.c.id == test_failure_tbl.c.test_run_id, isouter=True)
+                test_clause = test_run_tbl.join(test_failure_tbl,
+                        test_run_tbl.c.id == test_failure_tbl.c.test_run_id, isouter=True)
+
+                q = sa.select([builds_tbl] + [test_failure_tbl.c.test_name]).select_from(
+                    from_clause).where(changes_tbl.c.changeid == changeid)
+            else:
+                q = sa.select([builds_tbl]).select_from(
+                    from_clause).where(changes_tbl.c.changeid == changeid)
+ 
             res = conn.execute(q)
-            return [self._builddictFromRow(row)
-                    for row in res.fetchall()]
+
+            if failedTests:
+                return self._builddictWithFailedTests(res.fetchall())
+            else:
+                return [self._builddictFromRow(row)
+                        for row in res.fetchall()]
 
         return self.db.pool.do(thd)
 
@@ -251,6 +294,11 @@ class BuildsConnectorComponent(base.DBConnectorComponent):
                              {"value": value_js, "source": source})
         yield self.db.pool.do(thd)
 
+    def _buildtestdictFromRow(self, row):
+        return dict(
+            test_name=row.test_name,
+        )
+
     def _builddictFromRow(self, row):
         return {
             "id": row.id,
@@ -264,3 +312,32 @@ class BuildsConnectorComponent(base.DBConnectorComponent):
             "state_string": row.state_string,
             "results": row.results
         }
+
+
+    def _builddictWithFailedTests(self, res):
+        entries = OrderedDict()
+        for row in res:
+            if row.id in entries:
+                d = entries[row.id]
+
+                if row.test_name is not None:
+                    d['failed_tests'].append({'test_name': row.test_name})
+            else:
+                d = dict(
+                    id=row.id,
+                    number=row.number,
+                    builderid=row.builderid,
+                    buildrequestid=row.buildrequestid,
+                    workerid=row.workerid,
+                    masterid=row.masterid,
+                    started_at=epoch2datetime(row.started_at),
+                    complete_at=epoch2datetime(row.complete_at),
+                    state_string=row.state_string,
+                    results=row.results)
+                if row.test_name is not None:
+                    d['failed_tests'] = [{'test_name': row.test_name}]
+                else:
+                    d['failed_tests'] = []
+                entries[d['id']] = d
+        return list(entries.values())
+

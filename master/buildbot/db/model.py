@@ -256,6 +256,28 @@ class Model(base.DBConnectorComponent):
         sa.Column('property_value', sa.Text, nullable=False),
     )
 
+    test_run = sautils.Table(
+        'test_run', metadata,
+        sa.Column('id', sa.Integer, primary_key=True),
+
+        sa.Column('branch', sa.String(100)),
+        sa.Column('revision', sa.String(32), nullable=False),
+        sa.Column('platform', sa.String(100), nullable=False),
+        sa.Column('dt', sa.TIMESTAMP, nullable=False),
+        sa.Column('bbnum', sa.Integer, nullable=False),
+        sa.Column('typ', sa.String(32), nullable=False),
+        sa.Column('info', sa.String(255)),
+    )
+
+    test_failure = sautils.Table(
+        'test_failure', metadata,
+        sa.Column('test_run_id', sa.Integer, primary_key=True),
+        sa.Column('test_name', sa.String(100), primary_key=True),
+        sa.Column('test_variant', sa.String(16), primary_key=True),
+        sa.Column('info_text', sa.String(255)),
+        sa.Column('failure_text', sa.Text),
+    )
+
     # This table represents Buildsets - sets of BuildRequests that share the
     # same original cause and source information.
     buildsets = sautils.Table(
