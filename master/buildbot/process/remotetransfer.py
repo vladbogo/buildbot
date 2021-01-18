@@ -81,10 +81,18 @@ class FileWriter(base.FileWriterImpl):
         self.tmpname = None
         if self.mode is not None:
             os.chmod(self.destfile, self.mode)
-            try:
-                os.chmod(self.dirname, self.mode)
-            except:
-                pass
+
+            splits = self.dirname.split('/')
+            partial_path = ""
+            for p in splits:
+                if p == "":
+                    continue
+                partial_path += '/' + p
+                try:
+                    os.chmod(partial_path, self.mode)
+                except:
+                    pass
+
 
     def cancel(self):
         # unclean shutdown, the file is probably truncated, so delete it
