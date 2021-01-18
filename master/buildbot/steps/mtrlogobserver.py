@@ -24,6 +24,7 @@ from twisted.python import log
 from buildbot.process.buildstep import LogLineObserver
 from buildbot.steps.shell import Test
 
+from os.path import splitext
 
 class EqConnectionPool(adbapi.ConnectionPool):
 
@@ -88,9 +89,9 @@ class MtrLogObserver(LogLineObserver):
     overridden in a subclass to do further processing on the information."""
 
     _line_re = re.compile(
-        r"^([-._0-9a-zA-z]+)( '[-_ ,a-zA-Z]+')?\s+(w[0-9]+\s+)?\[ (fail|pass) \]\s*(.*)$")
+        r"^([-._0-9a-zA-z]+)( '[-_ ,0-9a-zA-Z]+')?\s+(w[0-9]+\s+)?\[ (fail|pass) \]\s*(.*)$")
     _line_re2 = re.compile(
-        r"^[-._0-9a-zA-z]+( '[-_ ,a-zA-Z]+')?\s+(w[0-9]+\s+)?\[ [-a-z]+ \]")
+        r"^[-._0-9a-zA-z]+( '[-_ ,0-9a-zA-Z]+')?\s+(w[0-9]+\s+)?\[ [-a-z]+ \]")
     _line_re3 = re.compile(
         r"^\*\*\*Warnings generated in error logs during shutdown after running tests: (.*)")
     _line_re4 = re.compile(r"^The servers were restarted [0-9]+ times$")
@@ -285,11 +286,20 @@ class MTR(Test):
                  autoCreateTables=False, textLimit=5, testNameLimit=16,
                  parallel=4, logfiles=None, lazylogfiles=True,
                  warningPattern="MTR's internal check of the test case '.*' failed",
-                 mtr_subdir="mysql-test", **kwargs):
+                 mtr_subdir="mysql-test", addLogs=False, **kwargs):
 
+        self.html_logfiles = {}
         if logfiles is None:
             logfiles = {}
-
+        else:
+            lf = {}
+            for logname, remotefilename in logfiles.items():
+                _, extension = splitext(remotefilename)
+                if extension.lower() in ('.html', '.htm'):
+                    self.html_logfiles[logname] = remotefilename
+                else:
+                    lf[logname] = remotefilename
+            logfiles = lf
         if description is None:
             description = ["testing"]
             if test_type:
@@ -310,18 +320,20 @@ class MTR(Test):
         self.parallel = parallel
         self.mtr_subdir = mtr_subdir
         self.progressMetrics += ('tests',)
+        self.addLogs = addLogs
 
     def start(self):
         # Add mysql server logfiles.
-        for mtr in range(0, self.parallel + 1):
-            for mysqld in range(1, 4 + 1):
-                if mtr == 0:
-                    logname = "mysqld.%d.err" % mysqld
-                    filename = "var/log/mysqld.%d.err" % mysqld
-                else:
-                    logname = "mysqld.%d.err.%d" % (mysqld, mtr)
-                    filename = "var/%d/log/mysqld.%d.err" % (mtr, mysqld)
-                self.addLogFile(logname, self.mtr_subdir + "/" + filename)
+        if self.addLogs:
+            for mtr in range(0, self.parallel + 1):
+                for mysqld in range(1, 4 + 1):
+                    if mtr == 0:
+                        logname = "mysqld.%d.err" % mysqld
+                        filename = "var/log/mysqld.%d.err" % mysqld
+                    else:
+                        logname = "mysqld.%d.err.%d" % (mysqld, mtr)
+                        filename = "var/%d/log/mysqld.%d.err" % (mtr, mysqld)
+                    self.addLogFile(logname, self.mtr_subdir + "/" + filename)
 
         self.myMtr = self.MyMtrLogObserver(textLimit=self.textLimit,
                                            testNameLimit=self.testNameLimit,
@@ -332,6 +344,21 @@ class MTR(Test):
         d = self.registerInDB()
         d.addCallback(self.afterRegisterInDB)
         d.addErrback(self.failed)
+
+    @defer.inlineCallbacks
+    def commandComplete(self, cmd):
+        # process all html files we are aware of
+        for logname, remotefilename in self.html_logfiles.items():
+            # get the content of the remote file
+            html = yield self.getFileContentFromWorker(filename=remotefilename, abandonOnFailure=True)
+
+            # add the html file
+            yield self.addHTMLLog(name=logname, html=html)
+
+        # remove html lof files
+        self.html_logfiles = {}
+
+        return super().commandComplete(cmd)
 
     def getText(self, command, results):
         return self.myMtr.makeText(True)
