@@ -134,7 +134,7 @@ class DockerLatentWorker(DockerBaseWorker,
                     command=None, volumes=None, dockerfile=None, version=None,
                     tls=None, followStartupLogs=False, masterFQDN=None,
                     hostconfig=None, autopull=False, alwaysPull=False,
-                    custom_context=False, encoding='gzip', buildargs=None,
+                    custom_context=False, encoding='gzip', buildargs=None, platform=None,
                     **kwargs):
 
         super().checkConfig(name, password, image, masterFQDN, **kwargs)
@@ -165,7 +165,7 @@ class DockerLatentWorker(DockerBaseWorker,
                         command=None, volumes=None, dockerfile=None,
                         version=None, tls=None, followStartupLogs=False,
                         masterFQDN=None, hostconfig=None, autopull=False,
-                        alwaysPull=False, custom_context=False,
+                        alwaysPull=False, custom_context=False, platform=None,
                         encoding='gzip', buildargs=None, **kwargs):
 
         yield super().reconfigService(name, password, image, masterFQDN, **kwargs)
@@ -180,6 +180,7 @@ class DockerLatentWorker(DockerBaseWorker,
         self.custom_context = custom_context
         self.encoding = encoding
         self.buildargs = buildargs
+        self.platform = platform
         # Prepare the parameters for the Docker Client object.
         self.client_args = {'base_url': docker_host}
         if version is not None:
@@ -281,7 +282,7 @@ class DockerLatentWorker(DockerBaseWorker,
         if ((not imageExists) or self.alwaysPull) and self.autopull:
             if (not imageExists):
                 log.msg("Image '{}' not found, pulling from registry".format(image))
-            docker_client.pull(image)
+            docker_client.pull(image, platform=self.platform)
 
         if (not self._image_exists(docker_client, image)):
             msg = 'Image "{}" not found on docker host.'.format(image)
@@ -301,7 +302,8 @@ class DockerLatentWorker(DockerBaseWorker,
             name=self.getContainerName(),
             volumes=volumes,
             environment=self.createEnvironment(),
-            host_config=host_conf
+            host_config=host_conf,
+            platform=self.platform
         )
 
         if instance.get('Id') is None:
